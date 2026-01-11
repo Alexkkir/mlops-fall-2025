@@ -47,3 +47,47 @@ uv run mlflow ui
 ```bash
 uv run pytest tests
 ```
+
+### Docker (Offline Inference)
+Сборка образа:
+```bash
+docker build -t ml-app:v1 .
+```
+
+Запуск инференса:
+```bash
+# Предполагается, что данные лежат в папке ./data_input на хосте
+docker run --rm \
+  -v $(pwd)/data_input:/app/input \
+  -v $(pwd)/data_output:/app/output \
+  ml-app:v1 --input_path /app/input --output_path /app/output/preds.csv
+```
+
+### TorchServe (Online Inference)
+Сборка образа для TorchServe:
+1. Создайте `.mar` архив (если модель обновилась):
+```bash
+mkdir -p model_store
+uv run torch-model-archiver --model-name pointwise_model \
+  --version 1.0 \
+  --model-file src/models/classic_cv_model.py \
+  --serialized-file best_model.pth \
+  --handler src/handler.py \
+  --export-path model_store
+```
+
+2. Соберите Docker-образ:
+```bash
+docker build -f Dockerfile.torchserve -t pointwise-serve:v1 .
+```
+
+3. Запустите сервис:
+```bash
+docker run --rm -p 8080:8080 -p 8081:8081 pointwise-serve:v1
+```
+
+4. Проверьте работу (API):
+```bash
+# Тест с curl (отправка изображения)
+curl -X POST http://localhost:8080/predictions/pointwise -T test_input/test.jpg
+```
