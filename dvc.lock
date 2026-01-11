@@ -33,8 +33,8 @@ stages:
       size: 5272
     - path: src/train.py
       hash: md5
-      md5: b4bc851a9ce9644808206f630f2a10d2
-      size: 6084
+      md5: 4f2f7015b5232a880a4553705e6e1dcb
+      size: 6955
     outs:
     - path: best_model.pth
       hash: md5

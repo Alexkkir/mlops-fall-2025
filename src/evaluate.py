@@ -1,16 +1,18 @@
 import logging
-import torch
-import pandas as pd
-import hydra
 from pathlib import Path
+
+import hydra
+import pandas as pd
+import torch
+import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import torch.nn as nn
 
 from src.datasets import PairWiseDataLoader
 
 logger = logging.getLogger(__name__)
+
 
 def evaluate_model(model, dataloader, device, criterion):
     model.eval()
@@ -37,44 +39,44 @@ def evaluate_model(model, dataloader, device, criterion):
     accuracy = correct / total if total > 0 else 0.0
     return avg_loss, accuracy
 
+
 @hydra.main(version_base="1.3", config_path="../configs", config_name="train")
 def main(config: DictConfig):
     logger.info(f"Evaluation Config:\n{OmegaConf.to_yaml(config)}")
-    
+
     device = torch.device(config.device if torch.cuda.is_available() else "cpu")
-    
+
     # Load data
     val_path = Path(config.val_path)
     if not val_path.exists():
-         # Fallback logic if needed, or fail
-         # For DVC pipeline, we expect this file to exist
-         raise FileNotFoundError(f"Validation data not found at {val_path}")
-         
+        raise FileNotFoundError(f"Validation data not found at {val_path}")
+
     val_df = pd.read_csv(val_path)
     logger.info(f"Validation samples: {len(val_df)}")
 
-    val_dataset = PairWiseDataLoader(val_df, config.images_dir, image_size=config.get("image_size", 224))
+    val_dataset = PairWiseDataLoader(
+        val_df, config.images_dir, image_size=config.get("image_size", 224)
+    )
     val_loader = DataLoader(
-        val_dataset, 
-        batch_size=config.batch_size, 
-        shuffle=False, 
-        num_workers=config.num_workers
+        val_dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+        num_workers=config.num_workers,
     )
 
     # Load model
     logger.info("Loading model...")
     model = hydra.utils.instantiate(config.model)
-    
+
     # Load weights
-    # Assuming we want to evaluate the best model found during training
-    # Ideally this path should be passed via config or CLI
-    # For now, let's assume it's in the current working directory or passed as an override
-    model_path = "best_model.pth" 
+    model_path = "best_model.pth"
     if Path(model_path).exists():
         model.load_state_dict(torch.load(model_path, map_location=device))
         logger.info(f"Loaded weights from {model_path}")
     else:
-        logger.warning(f"No checkpoint found at {model_path}, evaluating with random weights!")
+        logger.warning(
+            f"No checkpoint found at {model_path}, evaluating with random weights!"
+        )
 
     model.to(device)
     criterion = nn.MarginRankingLoss(margin=config.margin)
@@ -82,10 +84,11 @@ def main(config: DictConfig):
     loss, acc = evaluate_model(model, val_loader, device, criterion)
     logger.info(f"Validation Loss: {loss:.4f}")
     logger.info(f"Validation Accuracy: {acc:.4f}")
-    
+
     # Save metrics for DVC/MLflow
     with open("metrics.json", "w") as f:
         f.write(f'{{"val_loss": {loss}, "val_accuracy": {acc}}}')
+
 
 if __name__ == "__main__":
     main()
