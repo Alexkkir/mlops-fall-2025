@@ -4,6 +4,7 @@ import random
 from pathlib import Path
 
 import hydra
+import mlflow
 import numpy as np
 import pandas as pd
 import torch
@@ -121,61 +122,76 @@ def run_training(config: DictConfig):
     # 5. TensorBoard Setup
     writer = SummaryWriter(log_dir=os.getcwd())  # Hydra changes cwd to outputs/...
 
+    # MLflow Setup
+    mlflow.set_tracking_uri("file://" + hydra.utils.get_original_cwd() + "/mlruns")
+    mlflow.set_experiment("mlops-hw1")
+
     # 6. Training Loop
     global_step = 0
     best_acc = 0.0
 
-    for epoch in range(config.epochs):
-        logger.info(f"Starting Epoch {epoch + 1}/{config.epochs}")
-        model.train()
+    with mlflow.start_run():
+        # Log parameters
+        mlflow.log_params(OmegaConf.to_container(config, resolve=True))
         
-        epoch_loss = 0.0
-        progress_bar = tqdm(train_loader, desc=f"Train Epoch {epoch+1}")
-        
-        for batch in progress_bar:
-            bad_img = batch["bad_image"].to(device)
-            good_img = batch["good_image"].to(device)
-
-            # Forward pass
-            bad_out = model(bad_img)
-            good_out = model(good_img)
-
-            # Calculate loss
-            target = torch.ones_like(good_out)
-            loss = criterion(good_out, bad_out, target)
-
-            # Backward pass
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # Logging
-            loss_val = loss.item()
-            epoch_loss += loss_val
-            global_step += 1
+        for epoch in range(config.epochs):
+            logger.info(f"Starting Epoch {epoch + 1}/{config.epochs}")
+            model.train()
             
-            writer.add_scalar("Train/Loss_Step", loss_val, global_step)
-            progress_bar.set_postfix({"loss": f"{loss_val:.4f}"})
+            epoch_loss = 0.0
+            progress_bar = tqdm(train_loader, desc=f"Train Epoch {epoch+1}")
+            
+            for batch in progress_bar:
+                bad_img = batch["bad_image"].to(device)
+                good_img = batch["good_image"].to(device)
 
-        avg_train_loss = epoch_loss / len(train_loader)
-        writer.add_scalar("Train/Loss_Epoch", avg_train_loss, epoch)
-        logger.info(f"Epoch {epoch+1} Train Loss: {avg_train_loss:.4f}")
+                # Forward pass
+                bad_out = model(bad_img)
+                good_out = model(good_img)
 
-        # Validation
-        val_loss, val_acc = evaluate(model, val_loader, device, criterion)
-        writer.add_scalar("Val/Loss", val_loss, epoch)
-        writer.add_scalar("Val/Accuracy", val_acc, epoch)
-        
-        logger.info(f"Epoch {epoch+1} Val Loss: {val_loss:.4f}, Val Accuracy: {val_acc:.4f}")
+                # Calculate loss
+                target = torch.ones_like(good_out)
+                loss = criterion(good_out, bad_out, target)
 
-        # Save checkpoint if best
-        if val_acc > best_acc:
-            best_acc = val_acc
-            torch.save(model.state_dict(), "best_model.pth")
-            logger.info(f"New best model saved with accuracy: {best_acc:.4f}")
-        
-        # Save last checkpoint
-        torch.save(model.state_dict(), "last_model.pth")
+                # Backward pass
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                # Logging
+                loss_val = loss.item()
+                epoch_loss += loss_val
+                global_step += 1
+                
+                writer.add_scalar("Train/Loss_Step", loss_val, global_step)
+                mlflow.log_metric("train_loss_step", loss_val, step=global_step)
+                progress_bar.set_postfix({"loss": f"{loss_val:.4f}"})
+
+            avg_train_loss = epoch_loss / len(train_loader)
+            writer.add_scalar("Train/Loss_Epoch", avg_train_loss, epoch)
+            mlflow.log_metric("train_loss_epoch", avg_train_loss, step=epoch)
+            logger.info(f"Epoch {epoch+1} Train Loss: {avg_train_loss:.4f}")
+
+            # Validation
+            val_loss, val_acc = evaluate(model, val_loader, device, criterion)
+            writer.add_scalar("Val/Loss", val_loss, epoch)
+            writer.add_scalar("Val/Accuracy", val_acc, epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("val_accuracy", val_acc, step=epoch)
+            
+            logger.info(f"Epoch {epoch+1} Val Loss: {val_loss:.4f}, Val Accuracy: {val_acc:.4f}")
+
+            # Save checkpoint if best
+            if val_acc > best_acc:
+                best_acc = val_acc
+                torch.save(model.state_dict(), "best_model.pth")
+                logger.info(f"New best model saved with accuracy: {best_acc:.4f}")
+                mlflow.log_artifact("best_model.pth")
+            
+            # Save last checkpoint
+            torch.save(model.state_dict(), "last_model.pth")
+            
+        mlflow.log_artifact("last_model.pth")
 
     writer.close()
     logger.info("Training finished!")
