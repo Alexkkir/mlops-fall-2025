@@ -9,6 +9,8 @@ num_workers: 4
 device: "cuda"
 
 data_path: "${hydra:runtime.cwd}/data/sbs_logs_dedup_rel_random_1k_downloaded_validated2.csv"
+train_path: "${hydra:runtime.cwd}/data/prepared/train.csv"
+val_path: "${hydra:runtime.cwd}/data/prepared/val.csv"
 images_dir: "${hydra:runtime.cwd}/data/images"
 image_size: 224
 seed: 42

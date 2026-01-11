@@ -1,0 +1,29 @@
+stages:
+  prepare:
+    cmd: uv run src/prepare.py
+    deps:
+      - src/prepare.py
+      - data/sbs_logs_dedup_rel_random_1k_downloaded_validated2.csv
+    outs:
+      - data/prepared/train.csv
+      - data/prepared/val.csv
+
+  train:
+    cmd: uv run src/train.py
+    deps:
+      - src/train.py
+      - data/prepared/train.csv
+      - data/prepared/val.csv
+    outs:
+      - best_model.pth
+      - last_model.pth
+
+  evaluate:
+    cmd: uv run src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - best_model.pth
+      - data/prepared/val.csv
+    metrics:
+      - metrics.json:
+          cache: false

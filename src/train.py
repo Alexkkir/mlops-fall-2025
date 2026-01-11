@@ -68,18 +68,24 @@ def run_training(config: DictConfig):
     logger.info(f"Using device: {device}")
 
     # 2. Load Data
-    data_path = Path(config.data_path)
-    logger.info(f"Loading data from {data_path}")
+    # Expecting train and val csv paths from config
+    train_path = Path(config.train_path)
+    val_path = Path(config.val_path)
     
-    # Read JSONL file
-    df = pd.read_json(data_path, lines=True)
-    logger.info(f"Total samples: {len(df)}")
-
-    # Split Train/Val
-    train_size = int(0.8 * len(df))
-    val_size = len(df) - train_size
-    train_df = df.iloc[:train_size]
-    val_df = df.iloc[train_size:]
+    if not train_path.exists() or not val_path.exists():
+         logger.info("Train/Val paths not found or not specified. Falling back to data_path splitting...")
+         data_path = Path(config.data_path)
+         df = pd.read_json(data_path, lines=True)
+         
+         train_size = int(0.8 * len(df))
+         train_df = df.iloc[:train_size]
+         val_df = df.iloc[train_size:]
+    else:
+        logger.info(f"Loading train data from {train_path}")
+        train_df = pd.read_csv(train_path)
+        
+        logger.info(f"Loading val data from {val_path}")
+        val_df = pd.read_csv(val_path)
     
     logger.info(f"Train samples: {len(train_df)}, Val samples: {len(val_df)}")
 

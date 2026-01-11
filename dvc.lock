@@ -1,0 +1,66 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: uv run src/prepare.py
+    deps:
+    - path: data/sbs_logs_dedup_rel_random_1k_downloaded_validated2.csv
+      hash: md5
+      md5: 376822e5044ac66a2f19dc77a9888214
+      size: 38126
+    - path: src/prepare.py
+      hash: md5
+      md5: 8d5a70a78b637e0255c94f124cd5ead4
+      size: 1100
+    outs:
+    - path: data/prepared/train.csv
+      hash: md5
+      md5: 5dfaafa149cdaccb55f44c67ef82fcf6
+      size: 19769
+    - path: data/prepared/val.csv
+      hash: md5
+      md5: 5d70cfadef1ca2c427fb635c10f5dfbd
+      size: 5272
+  train:
+    cmd: uv run src/train.py
+    deps:
+    - path: data/prepared/train.csv
+      hash: md5
+      md5: 5dfaafa149cdaccb55f44c67ef82fcf6
+      size: 19769
+    - path: data/prepared/val.csv
+      hash: md5
+      md5: 5d70cfadef1ca2c427fb635c10f5dfbd
+      size: 5272
+    - path: src/train.py
+      hash: md5
+      md5: b4bc851a9ce9644808206f630f2a10d2
+      size: 6084
+    outs:
+    - path: best_model.pth
+      hash: md5
+      md5: 261ce5c8d5c8a3668fa88f52e4f69abe
+      size: 31273935
+    - path: last_model.pth
+      hash: md5
+      md5: ce9787f09f857b49faab7b302440035a
+      size: 31273935
+  evaluate:
+    cmd: uv run src/evaluate.py
+    deps:
+    - path: best_model.pth
+      hash: md5
+      md5: 261ce5c8d5c8a3668fa88f52e4f69abe
+      size: 31273935
+    - path: data/prepared/val.csv
+      hash: md5
+      md5: 5d70cfadef1ca2c427fb635c10f5dfbd
+      size: 5272
+    - path: src/evaluate.py
+      hash: md5
+      md5: bff933ab7bd1b17ebe02bef118850290
+      size: 3047
+    outs:
+    - path: metrics.json
+      hash: md5
+      md5: 97c2e7ac2b3e3aa1377eae646aa05361
+      size: 68
