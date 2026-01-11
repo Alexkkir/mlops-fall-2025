@@ -22,16 +22,3 @@ Pointwise метрика качества бездефектности ai-ген
 
 ## Бейзлайны
 - Запромпченные gpt-5.1, qwen-3-30b
-
-## Запуск
-### Обучение
-```bash
-python src/train.py
-# или
-uv run src/train.py
-```
-
-### Тестирование
-```bash
-uv run pytest tests
-```
