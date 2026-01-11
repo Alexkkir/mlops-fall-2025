@@ -1,9 +1,11 @@
-import torch
-from ts.torch_handler.base_handler import BaseHandler
 import base64
 import io
-from PIL import Image
+
+import torch
 import torchvision.transforms as transforms
+from PIL import Image
+from ts.torch_handler.base_handler import BaseHandler
+
 
 class PointwiseHandler(BaseHandler):
     """
@@ -12,10 +14,12 @@ class PointwiseHandler(BaseHandler):
 
     def __init__(self):
         super(PointwiseHandler, self).__init__()
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+            ]
+        )
 
     def preprocess(self, data):
         """
@@ -24,15 +28,12 @@ class PointwiseHandler(BaseHandler):
         """
         images = []
         for row in data:
-            # Compat with different client requests
             image = row.get("data") or row.get("body")
             if isinstance(image, (bytes, bytearray)):
                 image = Image.open(io.BytesIO(image))
             elif isinstance(image, str):
-                # Assume base64 string if string
-                # Or handle URL if needed
                 image = Image.open(io.BytesIO(base64.b64decode(image)))
-            
+
             image = self.transform(image)
             images.append(image)
 
